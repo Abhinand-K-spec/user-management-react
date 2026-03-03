@@ -33,6 +33,7 @@ export const AdminDashboard = () => {
   // Global messages
   const [deleteError, setDeleteError] = useState('');
   const [fetchError, setFetchError] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   useEffect(() => { fetchUsers(); }, [page]);
 
@@ -59,8 +60,8 @@ export const AdminDashboard = () => {
   };
 
   const deleteUser = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this user?')) return;
     setDeleteError('');
+    setConfirmDeleteId(null);
     try {
       await axios.delete(`${import.meta.env.VITE_API_BASE_URL}/admin/delete/${id}`, authHeader());
       fetchUsers();
@@ -228,12 +229,25 @@ export const AdminDashboard = () => {
                     <td>{u.name}</td>
                     <td>{u.email}</td>
                     <td style={{ textAlign: 'center' }}>
-                      <button className="btn-edit me-2" onClick={() => openEdit(u._id)}>
+                      <button className="btn-edit me-2" onClick={() => { openEdit(u._id); setConfirmDeleteId(null); }}>
                         <i className="bi bi-pencil-square me-1"></i> Edit
                       </button>
-                      <button className="btn-delete" onClick={() => deleteUser(u._id)}>
-                        <i className="bi bi-trash me-1"></i> Delete
-                      </button>
+                      {confirmDeleteId === u._id ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span style={{ fontSize: '0.82rem', color: '#64748b' }}>Sure?</span>
+                          <button className="btn-delete" style={{ padding: '0.25rem 0.6rem' }} onClick={() => deleteUser(u._id)}>
+                            <i className="bi bi-check-lg"></i> Yes
+                          </button>
+                          <button onClick={() => setConfirmDeleteId(null)}
+                            style={{ background: '#e2e8f0', color: '#475569', border: 'none', borderRadius: '6px', padding: '0.25rem 0.6rem', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer' }}>
+                            <i className="bi bi-x-lg"></i> No
+                          </button>
+                        </span>
+                      ) : (
+                        <button className="btn-delete" onClick={() => setConfirmDeleteId(u._id)}>
+                          <i className="bi bi-trash me-1"></i> Delete
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))
