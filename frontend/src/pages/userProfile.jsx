@@ -108,7 +108,6 @@ export const UserProfile = () => {
         {apiError && <div className="alert-error mb-3">{apiError}</div>}
         {success && <div className="alert-success mb-3">{success}</div>}
 
-        {/* Avatar */}
         {image ? (
           <img
             src={`${import.meta.env.VITE_API_BASE_URL}/uploads/${image}`}
@@ -121,7 +120,6 @@ export const UserProfile = () => {
           </div>
         )}
 
-        {/* User Info */}
         <div className="profile-info mb-4">
           <p><span>Name:</span> {username}</p>
           <p><span>Email:</span> {email}</p>
@@ -129,7 +127,6 @@ export const UserProfile = () => {
 
         <hr style={{ borderColor: '#e2e8f0', marginBottom: '1.2rem' }} />
 
-        {/* Upload Form */}
         <form onSubmit={handleUpload} noValidate>
           <div className="mb-3">
             <label className="form-label" htmlFor="profile-upload">

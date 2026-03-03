@@ -30,7 +30,6 @@ export const UserHome = () => {
     <div className="home-wrapper">
       <div className="home-card">
 
-        {/* Avatar */}
         {profileImage ? (
           <img
             src={`${import.meta.env.VITE_API_BASE_URL}/uploads/${profileImage}`}

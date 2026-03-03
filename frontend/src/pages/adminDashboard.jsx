@@ -14,15 +14,12 @@ export const AdminDashboard = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  // Edit modal state
   const [editOpen, setEditOpen] = useState(false);
   const [selectedId, setSelectedId] = useState(null);
   const [editName, setEditName] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editErrors, setEditErrors] = useState({});
   const [editApiError, setEditApiError] = useState('');
-
-  // Add modal state
   const [addOpen, setAddOpen] = useState(false);
   const [addName, setAddName] = useState('');
   const [addEmail, setAddEmail] = useState('');
@@ -30,14 +27,15 @@ export const AdminDashboard = () => {
   const [addErrors, setAddErrors] = useState({});
   const [addApiError, setAddApiError] = useState('');
 
-  // Global messages
   const [deleteError, setDeleteError] = useState('');
   const [fetchError, setFetchError] = useState('');
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
-  useEffect(() => { fetchUsers(); }, [page]);
+  useEffect(() => {
+    fetchUsers();
+  }, [page]);
 
-  /* ── API Helpers ───────────────────────────────── */
+
   const authHeader = () => ({ headers: { Authorization: `Bearer ${token}` } });
 
   const checkAuth = (status) => {
@@ -71,7 +69,7 @@ export const AdminDashboard = () => {
     }
   };
 
-  /* ── Edit ──────────────────────────────────────── */
+
   const openEdit = async (id) => {
     setEditErrors({});
     setEditApiError('');
@@ -121,7 +119,7 @@ export const AdminDashboard = () => {
     }
   };
 
-  /* ── Add ───────────────────────────────────────── */
+
   const validateAdd = () => {
     const errs = {};
     if (!addName.trim()) errs.addName = 'Name is required.';
@@ -158,18 +156,18 @@ export const AdminDashboard = () => {
     }
   };
 
-  /* ── Filtered list ─────────────────────────────── */
+
   const filtered = users.filter((u) =>
     u.name.toLowerCase().includes(query.toLowerCase()) ||
     u.email.toLowerCase().includes(query.toLowerCase())
   );
 
-  /* ── Render ────────────────────────────────────── */
+
   return (
     <div className="dashboard-wrapper">
       <div className="dashboard-card">
 
-        {/* Header */}
+
         <div className="dashboard-header">
           <div className="dashboard-title">
             <i className="bi bi-people-fill me-2"></i>User Management
@@ -184,11 +182,11 @@ export const AdminDashboard = () => {
           </div>
         </div>
 
-        {/* Global error messages */}
+
         {fetchError && <div className="alert-error mb-3">{fetchError}</div>}
         {deleteError && <div className="alert-error mb-3">{deleteError}</div>}
 
-        {/* Search */}
+
         <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.2rem' }}>
           <input
             type="text"
@@ -199,7 +197,6 @@ export const AdminDashboard = () => {
           />
         </div>
 
-        {/* Table */}
         <div style={{ overflowX: 'auto' }}>
           <table className="table-custom">
             <thead>
@@ -256,7 +253,7 @@ export const AdminDashboard = () => {
           </table>
         </div>
 
-        {/* Pagination */}
+
         {totalPages > 1 && (
           <div className="pagination-bar">
             <button className="btn-page" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
@@ -270,7 +267,7 @@ export const AdminDashboard = () => {
         )}
       </div>
 
-      {/* ── Edit Modal ─────────────────────────────── */}
+
       {editOpen && (
         <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setEditOpen(false)}>
           <div className="modal-box">
@@ -310,7 +307,7 @@ export const AdminDashboard = () => {
         </div>
       )}
 
-      {/* ── Add Modal ──────────────────────────────── */}
+
       {addOpen && (
         <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setAddOpen(false)}>
           <div className="modal-box">
