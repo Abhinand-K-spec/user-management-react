@@ -1,6 +1,6 @@
 import User from "../models/users.js";
 
-  
+
 export const viewUsers = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -24,9 +24,9 @@ export const viewUsers = async (req, res) => {
     res.status(500).send({ error: 'Server error' });
   }
 };
-  
-  
-  
+
+
+
 export const createUser = async (req, res) => {
   const { name, email, password } = req.body;
   try {
@@ -43,11 +43,18 @@ export const createUser = async (req, res) => {
   }
 };
 
-  export const getUserById = async (req, res) => {
+export const getUserById = async (req, res) => {
+  try {
     const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).send({ error: 'User not found' });
+    }
     res.send({ user });
-  };
-  
+  } catch (error) {
+    res.status(500).send({ error: 'Server error' });
+  }
+};
+
 export const editUser = async (req, res) => {
   const { name, email } = req.body;
   const { id } = req.params;
@@ -66,9 +73,12 @@ export const editUser = async (req, res) => {
     res.status(500).send({ error: 'Server error' });
   }
 };
-  
-  export const deleteUser = async (req, res) => {
+
+export const deleteUser = async (req, res) => {
+  try {
     await User.findByIdAndDelete(req.params.id);
     res.send({ message: "User deleted" });
-  };
-  
+  } catch (error) {
+    res.status(500).send({ error: 'Server error' });
+  }
+};

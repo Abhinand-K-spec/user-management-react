@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import mongoose from 'mongoose';
 import indexRouter from './routes/index.js'
-import userRouter from './routes/users.js' 
+import userRouter from './routes/users.js'
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -17,12 +17,12 @@ const __dirname = dirname(__filename);
 
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 
 export const connectDB = async () => {
   try {
-    await mongoose.connect('mongodb://127.0.0.1:27017/users');
+    await mongoose.connect(process.env.MONGODB_URI);
     console.log(" MongoDB connected");
   } catch (error) {
     console.error(" MongoDB connection failed:", error.message);
@@ -38,8 +38,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 
-app.use ('/',userRouter)
-app.use('/admin',indexRouter)
+app.use('/', userRouter)
+app.use('/admin', indexRouter)
 
 
 app.listen(port, () => {

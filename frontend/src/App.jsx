@@ -2,12 +2,12 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 import { UserLogin } from "./pages/userLogin";
-import { UserRegister } from "./pages/UserRegister";
-import { UserHome } from "./pages/UserHome";
-import { UserProfile } from "./pages/UserProfile";
-import { AdminDashboard } from "./pages/AdminDashboard";
+import { UserRegister } from "./pages/userRegister";
+import { UserHome } from "./pages/userHome";
+import { UserProfile } from "./pages/userProfile";
+import { AdminDashboard } from "./pages/adminDashboard";
 
-import { ProtectedRoute, UnauthRoute } from "./routes/protectedRoutes";
+import { ProtectedRoute, UnauthRoute } from "./routes/protectedRoutes.jsx";
 
 const App = () => {
   return (

@@ -1,120 +1,165 @@
 import axios from 'axios';
-import { useEffect, useState } from "react";
-import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom"
-import { logout } from "../redux/userSlice";
+import { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
+import { logout } from '../redux/userSlice';
 
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
+export const UserProfile = () => {
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { username, id, email, token } = useSelector((state) => state.user);
 
-export const UserProfile = ()=>{
+  const [refresh, setRefresh] = useState(true);
+  const [image, setImage] = useState('');
+  const [file, setFile] = useState(null);
+  const [fileError, setFileError] = useState('');
+  const [apiError, setApiError] = useState('');
+  const [success, setSuccess] = useState('');
 
-    const navigate = useNavigate();
-    const [refresh, setRefresh] = useState(true);
-    const [image, setImage] = useState('');
-    const {username,id,email,token} = useSelector((state)=>state.user);
-    const [file,setFile] = useState(null);
-    const dispatch = useDispatch();
+  useEffect(() => {
+    const getUser = async () => {
+      setApiError('');
+      try {
+        const response = await axios.get(
+          `${import.meta.env.VITE_API_BASE_URL}/admin/user/${id}`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setImage(response.data.user.profileImage);
+      } catch (error) {
+        if (error.response?.status === 403) dispatch(logout());
+        setApiError('Failed to load profile. Please refresh.');
+      }
+    };
+    getUser();
+  }, [id, refresh]);
 
-    useEffect(()=>{
-        const getUser = async()=>{
-            try {
-                
-                const response = await axios.get(`https://localhost:3000/admin/user/${id}`,{
-                    Headers:{
-                        Authorization: `Bearer ${token}`
-                    },
-                });
-
-                setImage(response.data.user.profileImage);
-
-            } catch (error) {
-                console.log('failed to fetch users => ',error);
-                if(error.response.data==403){
-                    dispatch(logout());
-                }
-                alert('failed to fetch user details');
-                
-            }
-        };
-
-        getUser();
-    },[id, refresh]);
-
-    const handleUpload = async(e)=> {
-        e.preventDefault();
-        if(!file){
-            alert('Select a file');
-            return;
-        }
-        try {
-            const formData = new formData();
-            formData.append('image',file);
-            await axios.post(
-                `http://localhost:3000/profile/upload/${id}`,
-                formData,
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-            alert('Profile updated');
-            setRefresh(!refresh);
-        } catch (error) {
-            console.log('Upload failed',error);
-            if(error.response?.status == 403){
-                dispatch(logout());
-                navigate('/login');
-            }
-            alert('Upload failed');
-        }
-
+  const handleFileChange = (e) => {
+    const selected = e.target.files[0];
+    setFileError('');
+    setSuccess('');
+    if (!selected) return;
+    if (!ALLOWED_TYPES.includes(selected.type)) {
+      setFileError('Only JPG, PNG, WebP or GIF images are allowed.');
+      setFile(null);
+      return;
     }
+    if (selected.size > 2 * 1024 * 1024) {
+      setFileError('Image must be smaller than 2 MB.');
+      setFile(null);
+      return;
+    }
+    setFile(selected);
+  };
 
+  const handleUpload = async (e) => {
+    e.preventDefault();
+    setApiError('');
+    setSuccess('');
+    if (!file) {
+      setFileError('Please select an image file to upload.');
+      return;
+    }
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      await axios.post(
+        `${import.meta.env.VITE_API_BASE_URL}/profile/upload/${id}`,
+        formData,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setSuccess('Profile picture updated successfully!');
+      setFile(null);
+      setRefresh(!refresh);
+    } catch (error) {
+      if (error.response?.status === 403) {
+        dispatch(logout());
+        navigate('/login');
+      }
+      setApiError('Upload failed. Please try again.');
+    }
+  };
 
-
-   
   return (
-    <>
-      <form
-        onSubmit={handleUpload}
-        className="max-w-md mx-auto mt-10 bg-white p-6 rounded-2xl shadow-md space-y-6"
-      >
-        <h2 className="text-2xl font-bold text-center text-gray-800">Upload Profile Picture</h2>
-
-        <div className="text-gray-700">
-          <p><span className="font-semibold">Username:</span> {username}</p>
-          <p><span className="font-semibold">Email:</span> {email}</p>
+    <div className="profile-wrapper">
+      <div className="profile-card">
+        <div style={{ marginBottom: '1rem' }}>
+          <button
+            onClick={() => navigate('/')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#4f46e5',
+              fontWeight: 600,
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+              padding: 0,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+            }}
+          >
+            <i className="bi bi-arrow-left"></i> Back to Home
+          </button>
         </div>
+        <h2><i className="bi bi-person-circle me-2"></i>My Profile</h2>
 
-      
-        {image && (
-          <div className="flex justify-center">
-            <img
-              src={`http://localhost:3000/uploads/${image}`}
-              alt='image'
-              className="w-32 h-32 rounded-full object-cover border-2 border-gray-300 shadow"
-            />
+        {apiError && <div className="alert-error mb-3">{apiError}</div>}
+        {success && <div className="alert-success mb-3">{success}</div>}
+
+        {/* Avatar */}
+        {image ? (
+          <img
+            src={`${import.meta.env.VITE_API_BASE_URL}/uploads/${image}`}
+            alt="Profile"
+            className="profile-img"
+          />
+        ) : (
+          <div className="profile-avatar-placeholder">
+            <i className="bi bi-person-fill"></i>
           </div>
         )}
 
-        <div>
-          <label className="block mb-2 font-medium text-gray-700">Choose a profile picture</label>
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(e) => setFile(e.target.files[0])}
-            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4
-              file:rounded-full file:border-0
-              file:text-sm file:font-semibold
-              file:bg-blue-50 file:text-blue-700
-              hover:file:bg-blue-100"
-          />
+        {/* User Info */}
+        <div className="profile-info mb-4">
+          <p><span>Name:</span> {username}</p>
+          <p><span>Email:</span> {email}</p>
         </div>
 
+        <hr style={{ borderColor: '#e2e8f0', marginBottom: '1.2rem' }} />
+
+        {/* Upload Form */}
+        <form onSubmit={handleUpload} noValidate>
+          <div className="mb-3">
+            <label className="form-label" htmlFor="profile-upload">
+              Choose a new profile picture
+            </label>
+            <input
+              id="profile-upload"
+              type="file"
+              accept="image/*"
+              className={`form-control ${fileError ? 'is-invalid' : ''}`}
+              onChange={handleFileChange}
+            />
+            {fileError && <div className="invalid-feedback">{fileError}</div>}
+            <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.3rem' }}>
+              JPG, PNG, WebP or GIF · Max 2 MB
+            </div>
+          </div>
+
+          <button type="submit" className="btn-primary-custom">
+            <i className="bi bi-cloud-upload me-2"></i> Upload Photo
+          </button>
+        </form>
+
         <button
-          type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded-xl hover:bg-blue-700 transition duration-300"
+          className="btn-danger-custom mt-3"
+          onClick={() => { dispatch(logout()); navigate('/login'); }}
         >
-          Upload Profile
+          <i className="bi bi-box-arrow-right me-2"></i> Logout
         </button>
-      </form>
-    </>
+      </div>
+    </div>
   );
 };

@@ -3,316 +3,351 @@ import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../redux/userSlice';
 
+const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
 export const AdminDashboard = () => {
-  const [addOpen, setAddOpen] = useState(false);
-  const [users, setUsers] = useState([]);
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [query, setQuery] = useState('');
-  const [selectedUserId, setSelectedUserId] = useState(null);
-  const [addError, setAddError] = useState('');
-  const [editError, setEditError] = useState('');
-  const [page, setPage] = useState(1); 
-  const [totalPages, setTotalPages] = useState(1); 
   const dispatch = useDispatch();
   const { token } = useSelector((state) => state.user);
 
-  const check = (s) => {
-    if (s === '403') {
-      dispatch(logout());
-    }
+  const [users, setUsers] = useState([]);
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Edit modal state
+  const [editOpen, setEditOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editErrors, setEditErrors] = useState({});
+  const [editApiError, setEditApiError] = useState('');
+
+  // Add modal state
+  const [addOpen, setAddOpen] = useState(false);
+  const [addName, setAddName] = useState('');
+  const [addEmail, setAddEmail] = useState('');
+  const [addPassword, setAddPassword] = useState('');
+  const [addErrors, setAddErrors] = useState({});
+  const [addApiError, setAddApiError] = useState('');
+
+  // Global messages
+  const [deleteError, setDeleteError] = useState('');
+  const [fetchError, setFetchError] = useState('');
+
+  useEffect(() => { fetchUsers(); }, [page]);
+
+  /* ── API Helpers ───────────────────────────────── */
+  const authHeader = () => ({ headers: { Authorization: `Bearer ${token}` } });
+
+  const checkAuth = (status) => {
+    if (status === 403) dispatch(logout());
   };
 
-  useEffect(() => {
-    fetchUsers();
-  }, [page]); 
-
   const fetchUsers = async () => {
+    setFetchError('');
     try {
-      const { data } = await axios.get(`http://localhost:3000/admin/users?page=${page}&limit=10`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const { data } = await axios.get(
+        `${import.meta.env.VITE_API_BASE_URL}/admin/users?page=${page}&limit=10`,
+        authHeader()
+      );
       setUsers(data.users);
-      setTotalPages(data.pages);
+      setTotalPages(data.pages || 1);
     } catch (error) {
-      console.error('Failed to fetch users:', error);
-      check(error.response?.status);
+      checkAuth(error.response?.status);
+      setFetchError('Failed to load users. Please try again.');
     }
   };
 
   const deleteUser = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this user?')) return;
+    setDeleteError('');
     try {
-      await axios.delete(`http://localhost:3000/admin/delete/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await axios.delete(`${import.meta.env.VITE_API_BASE_URL}/admin/delete/${id}`, authHeader());
       fetchUsers();
     } catch (error) {
-      console.error('Failed to delete user:', error);
-      check(error.response?.status);
-      alert('Failed to delete user.');
+      checkAuth(error.response?.status);
+      setDeleteError('Failed to delete user. Please try again.');
     }
   };
 
-  const getUser = async (id) => {
+  /* ── Edit ──────────────────────────────────────── */
+  const openEdit = async (id) => {
+    setEditErrors({});
+    setEditApiError('');
     try {
-      const response = await axios.get(`http://localhost:3000/admin/user/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setName(response.data.user.name);
-      setEmail(response.data.user.email);
-      setSelectedUserId(id);
-      setEditError('');
-      setOpen(true);
+      const { data } = await axios.get(
+        `${import.meta.env.VITE_API_BASE_URL}/admin/user/${id}`,
+        authHeader()
+      );
+      setEditName(data.user.name);
+      setEditEmail(data.user.email);
+      setSelectedId(id);
+      setEditOpen(true);
     } catch (error) {
-      console.error('Failed to fetch user details:', error);
-      check(error.response?.status);
-      alert('Failed to fetch user details.');
+      checkAuth(error.response?.status);
+      setEditApiError('Failed to load user details.');
+      setEditOpen(true);
     }
   };
 
-  const editUser = async (id) => {
+  const validateEdit = () => {
+    const errs = {};
+    if (!editName.trim()) errs.editName = 'Name is required.';
+    if (!editEmail.trim()) {
+      errs.editEmail = 'Email is required.';
+    } else if (!validateEmail(editEmail)) {
+      errs.editEmail = 'Enter a valid email address.';
+    }
+    return errs;
+  };
+
+  const submitEdit = async (e) => {
+    e.preventDefault();
+    setEditApiError('');
+    const errs = validateEdit();
+    if (Object.keys(errs).length) { setEditErrors(errs); return; }
     try {
       await axios.put(
-        `http://localhost:3000/admin/edit/${id}`,
-        { name, email },
-        { headers: { Authorization: `Bearer ${token}` } }
+        `${import.meta.env.VITE_API_BASE_URL}/admin/edit/${selectedId}`,
+        { name: editName, email: editEmail },
+        authHeader()
       );
-      setOpen(false);
-      setEditError('');
+      setEditOpen(false);
       fetchUsers();
     } catch (error) {
-      console.error('Failed to edit user:', error);
-      check(error.response?.status);
-      setEditError(error.response?.data?.error || 'Failed to edit user.');
+      checkAuth(error.response?.status);
+      setEditApiError(error.response?.data?.error || 'Failed to update user.');
     }
   };
 
-  const createUser = async () => {
+  /* ── Add ───────────────────────────────────────── */
+  const validateAdd = () => {
+    const errs = {};
+    if (!addName.trim()) errs.addName = 'Name is required.';
+    if (!addEmail.trim()) {
+      errs.addEmail = 'Email is required.';
+    } else if (!validateEmail(addEmail)) {
+      errs.addEmail = 'Enter a valid email address.';
+    }
+    if (!addPassword) {
+      errs.addPassword = 'Password is required.';
+    } else if (addPassword.length < 6) {
+      errs.addPassword = 'Password must be at least 6 characters.';
+    }
+    return errs;
+  };
+
+  const submitAdd = async (e) => {
+    e.preventDefault();
+    setAddApiError('');
+    const errs = validateAdd();
+    if (Object.keys(errs).length) { setAddErrors(errs); return; }
     try {
       await axios.post(
-        `http://localhost:3000/admin/create`,
-        { name, email, password },
-        { headers: { Authorization: `Bearer ${token}` } }
+        `${import.meta.env.VITE_API_BASE_URL}/admin/create`,
+        { name: addName, email: addEmail, password: addPassword },
+        authHeader()
       );
       setAddOpen(false);
-      setAddError('');
-      setName('');
-      setEmail('');
-      setPassword('');
+      setAddName(''); setAddEmail(''); setAddPassword('');
       fetchUsers();
     } catch (error) {
-      console.error('Failed to create user:', error);
-      check(error.response?.status);
-      setAddError(error.response?.data?.error || 'Failed to create user.');
+      checkAuth(error.response?.status);
+      setAddApiError(error.response?.data?.error || 'Failed to create user.');
     }
   };
 
-  const search = users.filter((user) => user.name.toLowerCase().includes(query.toLowerCase()));
+  /* ── Filtered list ─────────────────────────────── */
+  const filtered = users.filter((u) =>
+    u.name.toLowerCase().includes(query.toLowerCase()) ||
+    u.email.toLowerCase().includes(query.toLowerCase())
+  );
 
+  /* ── Render ────────────────────────────────────── */
   return (
-    <div className="max-w-xl mx-auto mt-10 bg-white p-6 rounded-2xl shadow-md">
-      {/* Search and Add */}
-      <div className="mb-6 flex gap-4">
-        <input
-          type="text"
-          placeholder="Search users..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="flex-1 px-4 py-2 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <button
-          onClick={() => {
-            setAddOpen(true);
-            setAddError('');
-            setName('');
-            setEmail('');
-            setPassword('');
-          }}
-          className="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 transition"
-        >
-          Add
-        </button>
-      </div>
+    <div className="dashboard-wrapper">
+      <div className="dashboard-card">
 
-      {/* User Table */}
-      <div className="max-w-4xl mx-auto mt-10 overflow-x-auto">
-        <table className="min-w-full bg-white shadow-md rounded-xl">
-          <thead className="bg-blue-600 text-white">
-            <tr>
-              <th className="py-3 px-6 text-left">Username</th>
-              <th className="py-3 px-6 text-left">Email</th>
-              <th className="py-3 px-6 text-center">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {search.map((u) => (
-              <tr key={u._id} className="hover:bg-gray-50 transition">
-                <td className="py-3 px-6">{u.name}</td>
-                <td className="py-3 px-6">{u.email}</td>
-                <td className="py-3 px-6 text-center space-x-2">
-                  <button
-                    onClick={() => getUser(u._id)}
-                    className="bg-yellow-400 text-white px-4 py-1 rounded-md hover:bg-yellow-500 transition"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => deleteUser(u._id)}
-                    className="bg-red-500 text-white px-4 py-1 rounded-md hover:bg-red-600 transition"
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination Controls */}
-      <div className="mt-4 flex justify-between items-center">
-        <button
-          onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
-          disabled={page === 1}
-          className="px-4 py-2 bg-blue-600 text-white rounded-xl disabled:bg-gray-400 hover:bg-blue-700 transition"
-        >
-          Previous
-        </button>
-        <span>
-          Page {page} of {totalPages}
-        </span>
-        <button
-          onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
-          disabled={page === totalPages}
-          className="px-4 py-2 bg-blue-600 text-white rounded-xl disabled:bg-gray-400 hover:bg-blue-700 transition"
-        >
-          Next
-        </button>
-      </div>
-
-      {/* Edit Modal */}
-      {open && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-2xl shadow-xl w-96 relative">
-            <h2 className="text-xl font-bold mb-4">Edit User</h2>
-            {editError && (
-              <div className="text-red-500 text-center mb-4" role="alert">
-                {editError}
-              </div>
-            )}
-            <button
-              onClick={() => {
-                setOpen(false);
-                setEditError('');
-              }}
-              className="absolute top-2 right-3 text-gray-600 text-xl"
-            >
-              ×
+        {/* Header */}
+        <div className="dashboard-header">
+          <div className="dashboard-title">
+            <i className="bi bi-people-fill me-2"></i>User Management
+          </div>
+          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+            <button className="btn-add" onClick={() => { setAddOpen(true); setAddErrors({}); setAddApiError(''); setAddName(''); setAddEmail(''); setAddPassword(''); }}>
+              <i className="bi bi-person-plus me-1"></i> Add User
             </button>
-            <form onSubmit={(e) => e.preventDefault()}>
-              <div className="mb-4">
-                <label className="block text-gray-700 mb-1">Username</label>
+            <button className="btn-logout-sm" onClick={() => dispatch(logout())}>
+              <i className="bi bi-box-arrow-right me-1"></i> Logout
+            </button>
+          </div>
+        </div>
+
+        {/* Global error messages */}
+        {fetchError && <div className="alert-error mb-3">{fetchError}</div>}
+        {deleteError && <div className="alert-error mb-3">{deleteError}</div>}
+
+        {/* Search */}
+        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.2rem' }}>
+          <input
+            type="text"
+            className="search-input"
+            placeholder="Search by name or email..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+
+        {/* Table */}
+        <div style={{ overflowX: 'auto' }}>
+          <table className="table-custom">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th style={{ textAlign: 'center' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={4}>
+                    <div className="empty-state">
+                      <i className="bi bi-inbox" style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}></i>
+                      No users found.
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((u, idx) => (
+                  <tr key={u._id}>
+                    <td style={{ color: '#94a3b8', width: '48px' }}>
+                      {(page - 1) * 10 + idx + 1}
+                    </td>
+                    <td>{u.name}</td>
+                    <td>{u.email}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <button className="btn-edit me-2" onClick={() => openEdit(u._id)}>
+                        <i className="bi bi-pencil-square me-1"></i> Edit
+                      </button>
+                      <button className="btn-delete" onClick={() => deleteUser(u._id)}>
+                        <i className="bi bi-trash me-1"></i> Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="pagination-bar">
+            <button className="btn-page" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+              <i className="bi bi-chevron-left"></i> Prev
+            </button>
+            <span className="page-info">Page {page} of {totalPages}</span>
+            <button className="btn-page" disabled={page === totalPages} onClick={() => setPage(p => p + 1)}>
+              Next <i className="bi bi-chevron-right"></i>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── Edit Modal ─────────────────────────────── */}
+      {editOpen && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setEditOpen(false)}>
+          <div className="modal-box">
+            <h3><i className="bi bi-pencil-square me-2"></i>Edit User</h3>
+            <button className="modal-close" onClick={() => setEditOpen(false)}>&times;</button>
+
+            {editApiError && <div className="alert-error mb-3">{editApiError}</div>}
+
+            <form onSubmit={submitEdit} noValidate>
+              <div className="mb-3">
+                <label className="form-label">Name</label>
                 <input
                   type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter username"
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className={`form-control ${editErrors.editName ? 'is-invalid' : ''}`}
+                  placeholder="Enter name"
+                  value={editName}
+                  onChange={(e) => { setEditName(e.target.value); setEditErrors({ ...editErrors, editName: '' }); }}
                 />
+                {editErrors.editName && <div className="invalid-feedback">{editErrors.editName}</div>}
               </div>
               <div className="mb-4">
-                <label className="block text-gray-700 mb-1">Email</label>
+                <label className="form-label">Email</label>
                 <input
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  className={`form-control ${editErrors.editEmail ? 'is-invalid' : ''}`}
                   placeholder="Enter email"
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  value={editEmail}
+                  onChange={(e) => { setEditEmail(e.target.value); setEditErrors({ ...editErrors, editEmail: '' }); }}
                 />
+                {editErrors.editEmail && <div className="invalid-feedback">{editErrors.editEmail}</div>}
               </div>
-              <button
-                onClick={() => editUser(selectedUserId)}
-                type="submit"
-                className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
-              >
-                Submit
+              <button type="submit" className="btn-primary-custom">
+                <i className="bi bi-check-lg me-2"></i>Save Changes
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* Add User Modal */}
+      {/* ── Add Modal ──────────────────────────────── */}
       {addOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
-          <div className="bg-white p-6 rounded-2xl shadow-xl w-96 relative">
-            <h2 className="text-xl font-bold mb-4">Create New User</h2>
-            {addError && (
-              <div className="text-red-500 text-center mb-4" role="alert">
-                {addError}
-              </div>
-            )}
-            <button
-              onClick={() => {
-                setAddOpen(false);
-                setAddError('');
-              }}
-              className="absolute top-2 right-3 text-gray-600 text-xl"
-            >
-              ×
-            </button>
-            <form onSubmit={(e) => e.preventDefault()}>
-              <div className="mb-4">
-                <label className="block text-gray-700 mb-1">Username</label>
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setAddOpen(false)}>
+          <div className="modal-box">
+            <h3><i className="bi bi-person-plus me-2"></i>Create New User</h3>
+            <button className="modal-close" onClick={() => setAddOpen(false)}>&times;</button>
+
+            {addApiError && <div className="alert-error mb-3">{addApiError}</div>}
+
+            <form onSubmit={submitAdd} noValidate>
+              <div className="mb-3">
+                <label className="form-label">Name</label>
                 <input
                   type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter username"
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className={`form-control ${addErrors.addName ? 'is-invalid' : ''}`}
+                  placeholder="Enter name"
+                  value={addName}
+                  onChange={(e) => { setAddName(e.target.value); setAddErrors({ ...addErrors, addName: '' }); }}
                 />
+                {addErrors.addName && <div className="invalid-feedback">{addErrors.addName}</div>}
               </div>
-              <div className="mb-4">
-                <label className="block text-gray-700 mb-1">Email</label>
+              <div className="mb-3">
+                <label className="form-label">Email</label>
                 <input
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  className={`form-control ${addErrors.addEmail ? 'is-invalid' : ''}`}
                   placeholder="Enter email"
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  value={addEmail}
+                  onChange={(e) => { setAddEmail(e.target.value); setAddErrors({ ...addErrors, addEmail: '' }); }}
                 />
+                {addErrors.addEmail && <div className="invalid-feedback">{addErrors.addEmail}</div>}
               </div>
               <div className="mb-4">
-                <label className="block text-gray-700 mb-1">Password</label>
+                <label className="form-label">Password</label>
                 <input
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter password"
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className={`form-control ${addErrors.addPassword ? 'is-invalid' : ''}`}
+                  placeholder="Min. 6 characters"
+                  value={addPassword}
+                  onChange={(e) => { setAddPassword(e.target.value); setAddErrors({ ...addErrors, addPassword: '' }); }}
                 />
+                {addErrors.addPassword && <div className="invalid-feedback">{addErrors.addPassword}</div>}
               </div>
-              <button
-                onClick={createUser}
-                type="submit"
-                className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700"
-              >
-                Create User
+              <button type="submit" className="btn-primary-custom" style={{ backgroundColor: '#10b981' }}
+                onMouseOver={e => e.target.style.backgroundColor = '#059669'}
+                onMouseOut={e => e.target.style.backgroundColor = '#10b981'}>
+                <i className="bi bi-person-check me-2"></i>Create User
               </button>
             </form>
           </div>
         </div>
       )}
-
-      {/* Logout Button */}
-      <button
-        onClick={() => dispatch(logout())}
-        className="mt-6 w-full bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition"
-      >
-        Logout
-      </button>
     </div>
   );
 };
