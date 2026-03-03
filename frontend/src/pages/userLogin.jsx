@@ -47,7 +47,8 @@ export const UserLogin = () => {
       if (response.status === 200) {
         setSuccess('Login successful! Redirecting...');
         dispatch(loggin(response.data));
-        setTimeout(() => navigate('/'), 800);
+        const role = response.data.user?.role;
+        setTimeout(() => navigate(role === 'admin' ? '/admin/dashboard' : '/'), 800);
       }
     } catch (error) {
       setApiError('Invalid email or password.');
